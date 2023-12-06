@@ -1,0 +1,172 @@
+---
+title: <u>Assignment B-4</u>  
+output: 
+  github_document
+---
+
+## Option A - Strings and functional programming in R  
+
+#### <u>Exercise 1</u> : Make a plot of the most common words from a book, removing “stop words”.   
+
+Installing the required packages.     
+
+```{r}
+#Uncomment the following code chunck to install the required packages.
+#install.packages("janeaustenr")
+#install.packages("tidytext")
+```
+
+Loading the required packages.  
+
+```{r}
+library(janeaustenr)
+library(tidytext)
+library(tidyverse)
+library(ggplot2)
+```
+Filtering the Pride & Prejudice book from the collection of books from the janeaustenr package.    
+
+```{r}
+pride_and_prejudice <- austen_books() %>%
+  filter(book == "Pride & Prejudice")
+
+# Selecting the text of the book
+book_text <- pride_and_prejudice["text"]
+```
+
+Analyzing the content of the text to check if it's format is as required.  
+
+```{r}
+head(book_text, n = 20)
+```
+
+Splitting the contents of the text into words using the *unnest_tokens* function.  
+
+```{r}
+book_words <- book_text %>% 
+                  unnest_tokens(output = word, input = text) 
+head(book_words)
+```
+
+Removing stop word from the contents of the book. The stop words are from the *tidytext* package.   
+
+```{r}
+book_words <- book_words %>%
+                   anti_join(stop_words) 
+```
+
+Counting the number of times each word is repeated in the book.    
+
+```{r}
+book_wordcounts <- book_words %>% count(word, sort = TRUE)
+
+head(book_wordcounts)
+```
+
+Plotting the top 10 most repeated words in the book.   
+
+```{r}
+book_wordcounts %>% 
+  slice_max(n, n=10) %>% #Get the top 10 most frequent words
+  mutate(word = reorder(word, n)) %>% # Mutate and reorder the words based on frequency 
+    ggplot(aes(word, n, fill = word)) + 
+    geom_col() +
+    coord_flip() +
+    labs(x = "Word \n", y = "\n Count ", title = "Frequent Words In Pride & Prejudice \n") +
+    geom_text(aes(label = n), hjust = 1.2, colour = "white", fontface = "bold") +
+    theme(plot.title = element_text(face="bold", hjust = 0.5), 
+        axis.title.x = element_text(face="bold", size = 12),
+        axis.title.y = element_text(face="bold", size = 12))
+```
+
+#### <u>Exercise 2</u> : Make a function that converts words to your own version of Pig Latin     
+
+Loading the required packages.  
+```{r}
+library(stringr)
+library(testthat)
+```
+
+```{r}
+#' Dog Latin Transformation
+#'
+#' @description Transforms a given word into Dog Latin.
+#' 
+#' @details 
+#' This function takes a word as input and transforms it into Dog Latin.
+#' 
+#' Dog latin is a modified version of Pig latin. 
+#' In Dog latin if a word starts with a vowel, it's doggified version is obtained
+#' by adding "ruff" to the beginning of the word. 
+#' If a word starts with consonant or consonant cluster, all letters after the first vowel 
+#' are moved to beginning of the word and "woff" is added at the start of the rearranged 
+#' combination.
+#' 
+#' If the input is not a valid word (e.g., not a character or contains non-alphabetic characters), an error is thrown.
+#' is_vowel function has been defined inside the dog_latin function. This checks if a given letter is a vowel.
+#'  
+#' @param word A character string representing the word to be transformed.
+#'
+#' @return A character string representing the Dog Latin version of the input word. 
+#'
+#' @examples
+#' dog_latin("apple")  # Returns "ruffapple"
+#' dog_latin("banana") # Returns "anabawoff"
+dog_latin <- function(word){
+  if(!is.character(word)){ 
+    if(is.na(word)){
+      stop("Input is missing. Give the function a word to get the dogified version of it.")
+    }
+    else{
+      stop("Input should be a string. You inputted an object of class ", class(word), ".")
+    }
+  }
+  else{
+    if(length(word) > 1){
+      stop("Input should be a single word. Your input is of the length ", length(word), ".")
+    }
+    if(! grepl('^[A-Za-z]+$', word)){
+      stop("The word should only consist of letters from english alphabets.")
+    }
+  }
+  
+  vowels <- c ("a", "e", "i", "o", "u") #defining the vowel list
+  first_letter <- str_sub(word, start = 1, end = 1) #getting the first vowel
+  is_vowel <- function(l) l %in% c(vowels, toupper(vowels))
+  
+  if (is_vowel(first_letter)) {
+    answer <- str_c("ruff", word)
+  }
+  else{
+    letters <- str_split(word, "")[[1]]
+    first_vowel_index <- detect_index(letters, is_vowel)
+    after_vowel <- str_sub(word, start = first_vowel_index + 1, end = -1)
+    remaining_word <- str_sub(word, start = 1, end = first_vowel_index)
+    answer <- str_c("woff",after_vowel, remaining_word)
+  }
+  return (answer)
+}
+```
+
+Four different test_that functions have been written in order to test the working of the function.    
+
+```{r}
+test_that("Output word formats match to dog latin rules" , {
+  expect_equal(dog_latin("time"), "woffmeti")
+  expect_equal(dog_latin("apple"), "ruffapple")
+})
+
+test_that("Incorrect input formats generate errors", {
+  expect_error(dog_latin(TRUE))
+  expect_error(dog_latin(1))
+  expect_error(dog_latin(list("a", "b", "c")))
+})
+
+test_that("Input letters that are not part of English alphabets are rejected" , {
+  expect_error(dog_latin("!abc"))
+})
+
+test_that("NA values are not accepted as input", {
+  expect_error(dog_latin(NA))
+  })
+```
